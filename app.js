@@ -1,15 +1,20 @@
-const SUPABASE_URL =
-    "https://aljrlwiguzaovxrrdlrv.supabase.co";
 
-const SUPABASE_ANON_KEY =
-    "sb_publishable_Z5jAPgAdKUCbxUEhU6exZw_FkXgQ9m0";
+// ============================================================
+// SUPABASE CONNECTION
+// ============================================================
 
-const supabaseClient =
-    supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_ANON_KEY
-    );
+const SUPABASE_URL = "https://aljrlwiguzaovxrrdlrv.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_Z5jAPgAdKUCbxUEhU6exZw_FkXgQ9m0";
 
+const supabaseClient = supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
+);
+
+
+// ============================================================
+// GLOBAL VARIABLES
+// ============================================================
 
 let currentUser = null;
 let currentProfile = null;
@@ -21,8 +26,11 @@ let profiles = [];
 let targetHours = 90;
 
 
-const $ = id =>
-    document.getElementById(id);
+// ============================================================
+// SHORTCUT
+// ============================================================
+
+const $ = id => document.getElementById(id);
 
 
 // ============================================================
@@ -42,70 +50,80 @@ async function initializeApp() {
     setDefaultDate();
 
     const {
-        data: { session }
-    } =
-        await supabaseClient.auth.getSession();
+        data: { session },
+        error
+    } = await supabaseClient.auth.getSession();
 
-    if (session) {
 
-        await loadApplication(
-            session.user
-        );
-
+    if (error) {
+        console.error("Session error:", error);
     }
 
+
+    if (session) {
+        await loadApplication(session.user);
+    }
 }
 
 
 // ============================================================
-// EVENTS
+// BIND EVENTS
 // ============================================================
 
 function bindEvents() {
 
-    $("loginButton")
-        .addEventListener(
-            "click",
-            login
-        );
+    // LOGIN
+    $("loginButton").addEventListener(
+        "click",
+        login
+    );
 
 
-    $("loginPassword")
-        .addEventListener(
-            "keydown",
-            event => {
+    $("loginPassword").addEventListener(
+        "keydown",
+        event => {
 
-                if (
-                    event.key === "Enter"
-                ) {
-                    login();
-                }
-
+            if (event.key === "Enter") {
+                login();
             }
-        );
+
+        }
+    );
 
 
-    $("logoutButton")
-        .addEventListener(
-            "click",
-            logout
-        );
+    // LOGOUT
+    $("logoutButton").addEventListener(
+        "click",
+        logout
+    );
 
 
-    $("ceuForm")
-        .addEventListener(
-            "submit",
-            saveRecord
-        );
+    // SAVE WORKSHOP
+    $("ceuForm").addEventListener(
+        "submit",
+        saveRecord
+    );
 
 
-    $("cancelEditButton")
-        .addEventListener(
-            "click",
-            resetForm
-        );
+    // CANCEL EDIT
+    $("cancelEditButton").addEventListener(
+        "click",
+        resetForm
+    );
 
 
+    // ========================================================
+    // AUTOMATIC CEU PREVIEW
+    // SQL IS STILL THE OFFICIAL CALCULATION
+    // ========================================================
+
+    $("hours").addEventListener(
+        "input",
+        calculateCEUPreview
+    );
+
+
+    // NAVIGATION
     document
         .querySelectorAll(".nav-button")
         .forEach(button => {
@@ -124,85 +142,98 @@ function bindEvents() {
         });
 
 
-    $("mySearch")
-        .addEventListener(
-            "input",
-            renderMyRecords
-        );
+    // MY RECORD FILTERS
+    $("mySearch").addEventListener(
+        "input",
+        renderMyRecords
+    );
 
 
-    $("myStatus")
-        .addEventListener(
-            "change",
-            renderMyRecords
-        );
+    $("myStatus").addEventListener(
+        "change",
+        renderMyRecords
+    );
 
 
-    $("adminSearch")
-        .addEventListener(
-            "input",
-            renderAdminRecords
-        );
+    // ADMIN FILTERS
+    $("adminSearch").addEventListener(
+        "input",
+        renderAdminRecords
+    );
 
 
-    $("adminTeacherFilter")
-        .addEventListener(
-            "change",
-            renderAdminRecords
-        );
+    $("adminTeacherFilter").addEventListener(
+        "change",
+        renderAdminRecords
+    );
 
 
-    $("adminStatusFilter")
-        .addEventListener(
-            "change",
-            renderAdminRecords
-        );
+    $("adminStatusFilter").addEventListener(
+        "change",
+        renderAdminRecords
+    );
 
 
-    $("closeReviewButton")
-        .addEventListener(
-            "click",
-            closeReviewModal
-        );
+    // REVIEW MODAL
+    $("closeReviewButton").addEventListener(
+        "click",
+        closeReviewModal
+    );
 
 
-    $("approveButton")
-        .addEventListener(
-            "click",
-            () =>
-                reviewRecord("approved")
-        );
+    $("approveButton").addEventListener(
+        "click",
+        () => reviewRecord("approved")
+    );
 
 
-    $("rejectButton")
-        .addEventListener(
-            "click",
-            () =>
-                reviewRecord("rejected")
-        );
+    $("rejectButton").addEventListener(
+        "click",
+        () => reviewRecord("rejected")
+    );
 
 
-    $("exportMyButton")
-        .addEventListener(
-            "click",
-            () =>
-                exportCSV(
-                    myRecords,
-                    "My_CEU_Records.csv"
-                )
-        );
+    // EXPORTS
+    $("exportMyButton").addEventListener(
+        "click",
+        () => exportCSV(
+            myRecords,
+            "My_CEU_Records.csv"
+        )
+    );
 
 
-    $("adminExportButton")
-        .addEventListener(
-            "click",
-            () =>
-                exportCSV(
-                    allRecords,
-                    "District_CEU_Records.csv"
-                )
-        );
+    $("adminExportButton").addEventListener(
+        "click",
+        () => exportCSV(
+            allRecords,
+            "District_CEU_Records.csv"
+        )
+    );
+}
 
+
+// ============================================================
+// AUTOMATIC CEU PREVIEW
+//
+// 10 HOURS = 1 CEU
+//
+// IMPORTANT:
+// This is only for displaying the calculation to the teacher.
+// Supabase SQL calculates and stores the official CEU value.
+// ============================================================
+
+function calculateCEUPreview() {
+
+    const hours =
+        Number($("hours").value) || 0;
+
+    const ceu =
+        hours / 10;
+
+
+    $("ceu").value =
+        ceu.toFixed(2);
 }
 
 
@@ -226,10 +257,7 @@ async function login() {
             .value;
 
 
-    if (
-        !email ||
-        !password
-    ) {
+    if (!email || !password) {
 
         showMessage(
             "loginMessage",
@@ -238,7 +266,6 @@ async function login() {
         );
 
         return;
-
     }
 
 
@@ -248,13 +275,12 @@ async function login() {
     const {
         data,
         error
-    } =
-        await supabaseClient
-            .auth
-            .signInWithPassword({
-                email,
-                password
-            });
+    } = await supabaseClient
+        .auth
+        .signInWithPassword({
+            email,
+            password
+        });
 
 
     $("loginButton").disabled = false;
@@ -269,14 +295,12 @@ async function login() {
         );
 
         return;
-
     }
 
 
     await loadApplication(
         data.user
     );
-
 }
 
 
@@ -294,6 +318,10 @@ async function logout() {
     currentUser = null;
     currentProfile = null;
 
+    myRecords = [];
+    allRecords = [];
+    profiles = [];
+
 
     $("app")
         .classList
@@ -304,11 +332,14 @@ async function logout() {
         .classList
         .remove("hidden");
 
+
+    $("loginEmail").value = "";
+    $("loginPassword").value = "";
 }
 
 
 // ============================================================
-// LOAD APP
+// LOAD APPLICATION
 // ============================================================
 
 async function loadApplication(user) {
@@ -319,32 +350,33 @@ async function loadApplication(user) {
     const {
         data,
         error
-    } =
-        await supabaseClient
-            .from("profiles")
-            .select("*")
-            .eq(
-                "id",
-                user.id
-            )
-            .single();
+    } = await supabaseClient
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
 
 
     if (error) {
 
+        console.error(
+            "Profile error:",
+            error
+        );
+
         alert(
-            "Unable to load profile: " +
+            "Unable to load your profile: " +
             error.message
         );
 
         return;
-
     }
 
 
     currentProfile = data;
 
 
+    // HEADER
     $("headerName").textContent =
         currentProfile.full_name ||
         currentProfile.email;
@@ -356,9 +388,8 @@ async function loadApplication(user) {
             : "Teacher";
 
 
-    if (
-        currentProfile.role === "admin"
-    ) {
+    // ADMIN TAB
+    if (currentProfile.role === "admin") {
 
         $("adminTab")
             .classList
@@ -369,10 +400,10 @@ async function loadApplication(user) {
         $("adminTab")
             .classList
             .add("hidden");
-
     }
 
 
+    // SHOW APPLICATION
     $("loginPage")
         .classList
         .add("hidden");
@@ -390,27 +421,37 @@ async function loadApplication(user) {
     showView(
         "dashboardView"
     );
-
 }
 
 
 // ============================================================
-// SETTINGS
+// LOAD SETTINGS
 // ============================================================
 
 async function loadSettings() {
 
     const {
-        data
-    } =
-        await supabaseClient
-            .from("ceu_settings")
-            .select("*")
-            .eq(
-                "setting_name",
-                "target_hours"
-            )
-            .maybeSingle();
+        data,
+        error
+    } = await supabaseClient
+        .from("ceu_settings")
+        .select("*")
+        .eq(
+            "setting_name",
+            "target_hours"
+        )
+        .maybeSingle();
+
+
+    if (error) {
+
+        console.error(
+            "Settings error:",
+            error
+        );
+
+        return;
+    }
 
 
     if (
@@ -422,14 +463,12 @@ async function loadSettings() {
             Number(
                 data.numeric_value
             );
-
     }
-
 }
 
 
 // ============================================================
-// REFRESH
+// REFRESH ALL DATA
 // ============================================================
 
 async function refreshAll() {
@@ -438,19 +477,19 @@ async function refreshAll() {
 
 
     if (
+        currentProfile &&
         currentProfile.role === "admin"
     ) {
 
         await loadProfiles();
+
         await loadAllRecords();
-
     }
-
 }
 
 
 // ============================================================
-// MY RECORDS
+// LOAD MY RECORDS
 // ============================================================
 
 async function loadMyRecords() {
@@ -458,27 +497,29 @@ async function loadMyRecords() {
     const {
         data,
         error
-    } =
-        await supabaseClient
-            .from("ceu_records")
-            .select("*")
-            .eq(
-                "teacher_id",
-                currentUser.id
-            )
-            .order(
-                "workshop_date",
-                {
-                    ascending: false
-                }
-            );
+    } = await supabaseClient
+        .from("ceu_records")
+        .select("*")
+        .eq(
+            "teacher_id",
+            currentUser.id
+        )
+        .order(
+            "workshop_date",
+            {
+                ascending: false
+            }
+        );
 
 
     if (error) {
 
-        console.error(error);
-        return;
+        console.error(
+            "My records error:",
+            error
+        );
 
+        return;
     }
 
 
@@ -489,7 +530,6 @@ async function loadMyRecords() {
     renderDashboard();
 
     renderMyRecords();
-
 }
 
 
@@ -499,34 +539,35 @@ async function loadMyRecords() {
 
 function renderDashboard() {
 
-    const total =
+    const totalHours =
         sum(
             myRecords,
             "hours"
         );
 
 
-    const approved =
+    const approvedHours =
         sum(
             myRecords.filter(
-                r =>
-                    r.status === "approved"
+                record =>
+                    record.status === "approved"
             ),
             "hours"
         );
 
 
-    const pending =
+    const pendingHours =
         sum(
             myRecords.filter(
-                r =>
-                    r.status === "pending"
+                record =>
+                    record.status === "pending"
             ),
             "hours"
         );
 
 
-    const ceu =
+    // CEU COMES FROM SUPABASE GENERATED COLUMN
+    const totalCEUs =
         sum(
             myRecords,
             "ceu"
@@ -534,36 +575,40 @@ function renderDashboard() {
 
 
     $("totalHours").textContent =
-        formatNumber(total);
+        formatNumber(totalHours);
 
 
     $("approvedHours").textContent =
-        formatNumber(approved);
+        formatNumber(approvedHours);
 
 
     $("pendingHours").textContent =
-        formatNumber(pending);
+        formatNumber(pendingHours);
 
 
     $("totalCEUs").textContent =
-        formatNumber(ceu);
+        formatNumber(totalCEUs);
 
+
+    // ========================================================
+    // PROGRESS TOWARD TARGET
+    // Uses approved hours only
+    // ========================================================
 
     const percent =
         targetHours > 0
-            ?
-            Math.min(
+            ? Math.min(
                 100,
-                approved /
-                targetHours *
-                100
+                (
+                    approvedHours /
+                    targetHours
+                ) * 100
             )
-            :
-            0;
+            : 0;
 
 
     $("goalText").textContent =
-        `${formatNumber(approved)} of ${formatNumber(targetHours)} hours`;
+        `${formatNumber(approvedHours)} of ${formatNumber(targetHours)} hours`;
 
 
     $("goalPercent").textContent =
@@ -580,21 +625,22 @@ function renderDashboard() {
         Math.max(
             0,
             targetHours -
-            approved
+            approvedHours
         );
 
 
     $("remainingText").textContent =
-        `${formatNumber(remaining)} hours remaining`;
+        remaining > 0
+            ? `${formatNumber(remaining)} hours remaining`
+            : "Professional learning goal reached";
 
 
     renderRecent();
-
 }
 
 
 // ============================================================
-// RECENT
+// RECENT RECORDS
 // ============================================================
 
 function renderRecent() {
@@ -615,35 +661,46 @@ function renderRecent() {
                     <tr>
 
                         <td>
-                            ${formatDate(record.workshop_date)}
+                            ${formatDate(
+                                record.workshop_date
+                            )}
                         </td>
 
                         <td>
-                            ${escapeHTML(record.workshop_name)}
+                            ${escapeHTML(
+                                record.workshop_name
+                            )}
                         </td>
 
                         <td>
-                            ${formatNumber(record.hours)}
+                            ${formatNumber(
+                                record.hours
+                            )}
                         </td>
 
                         <td>
-                            ${formatNumber(record.ceu)}
+                            ${formatNumber(
+                                record.ceu
+                            )}
                         </td>
 
                         <td>
-                            ${statusBadge(record.status)}
+                            ${statusBadge(
+                                record.status
+                            )}
                         </td>
 
                     </tr>
 
                 `)
                 .join("")
+
             :
+
             emptyRow(
                 5,
                 "No professional learning records yet."
             );
-
 }
 
 
@@ -661,24 +718,30 @@ function renderMyRecords() {
 
 
     const status =
-        $("myStatus")
-            .value;
+        $("myStatus").value;
 
 
     const records =
         myRecords.filter(record => {
 
+            const workshop =
+                (
+                    record.workshop_name ||
+                    ""
+                ).toLowerCase();
+
+
+            const provider =
+                (
+                    record.provider ||
+                    ""
+                ).toLowerCase();
+
+
             const matchesSearch =
                 !search ||
-                record.workshop_name
-                    .toLowerCase()
-                    .includes(search) ||
-
-                (
-                    record.provider || ""
-                )
-                    .toLowerCase()
-                    .includes(search);
+                workshop.includes(search) ||
+                provider.includes(search);
 
 
             const matchesStatus =
@@ -690,30 +753,30 @@ function renderMyRecords() {
                 matchesSearch &&
                 matchesStatus
             );
-
         });
 
 
-    $("myRecordsTable")
-        .innerHTML =
+    $("myRecordsTable").innerHTML =
         records.length
             ?
             records
-                .map(record =>
-                    myRecordRow(record)
+                .map(
+                    record =>
+                        myRecordRow(record)
                 )
                 .join("")
+
             :
+
             emptyRow(
                 8,
                 "No matching records."
             );
-
 }
 
 
 // ============================================================
-// MY ROW
+// MY RECORD ROW
 // ============================================================
 
 function myRecordRow(record) {
@@ -727,25 +790,37 @@ function myRecordRow(record) {
         <tr>
 
             <td>
-                ${formatDate(record.workshop_date)}
+                ${formatDate(
+                    record.workshop_date
+                )}
             </td>
 
             <td>
+
                 <strong>
-                    ${escapeHTML(record.workshop_name)}
+                    ${escapeHTML(
+                        record.workshop_name
+                    )}
                 </strong>
+
             </td>
 
             <td>
-                ${escapeHTML(record.provider || "")}
+                ${escapeHTML(
+                    record.provider || ""
+                )}
             </td>
 
             <td>
-                ${formatNumber(record.hours)}
+                ${formatNumber(
+                    record.hours
+                )}
             </td>
 
             <td>
-                ${formatNumber(record.ceu)}
+                ${formatNumber(
+                    record.ceu
+                )}
             </td>
 
             <td>
@@ -753,11 +828,14 @@ function myRecordRow(record) {
                 ${
                     record.document_path
                         ?
-                        `<button
-                            onclick="viewDocument('${record.document_path}')"
-                            class="secondary-button">
+                        `
+                        <button
+                            onclick="viewDocument('${escapeJSString(record.document_path)}')"
+                            class="secondary-button"
+                        >
                             View
-                        </button>`
+                        </button>
+                        `
                         :
                         "—"
                 }
@@ -765,7 +843,9 @@ function myRecordRow(record) {
             </td>
 
             <td>
-                ${statusBadge(record.status)}
+                ${statusBadge(
+                    record.status
+                )}
             </td>
 
             <td>
@@ -774,17 +854,19 @@ function myRecordRow(record) {
                     editable
                         ?
                         `
-                            <button
-                                onclick="editRecord(${record.id})"
-                                class="secondary-button">
-                                Edit
-                            </button>
+                        <button
+                            onclick="editRecord(${record.id})"
+                            class="secondary-button"
+                        >
+                            Edit
+                        </button>
 
-                            <button
-                                onclick="deleteRecord(${record.id})"
-                                class="secondary-button">
-                                Delete
-                            </button>
+                        <button
+                            onclick="deleteRecord(${record.id})"
+                            class="secondary-button"
+                        >
+                            Delete
+                        </button>
                         `
                         :
                         ""
@@ -795,12 +877,15 @@ function myRecordRow(record) {
         </tr>
 
     `;
-
 }
 
 
 // ============================================================
 // SAVE RECORD
+//
+// IMPORTANT:
+// CEU IS NOT INCLUDED.
+// SUPABASE CALCULATES CEU FROM HOURS.
 // ============================================================
 
 async function saveRecord(event) {
@@ -839,34 +924,58 @@ async function saveRecord(event) {
         );
 
 
-    const ceu =
-        Number(
-            $("ceu").value || 0
-        );
-
-
     const description =
         $("description")
             .value
             .trim();
 
 
-    if (
-        !workshopName ||
-        !workshopDate ||
-        hours < 0
-    ) {
+    // ========================================================
+    // VALIDATION
+    // ========================================================
+
+    if (!workshopName) {
 
         showMessage(
             "formMessage",
-            "Complete all required fields.",
+            "Enter the workshop or course name.",
             "error"
         );
 
         return;
-
     }
 
+
+    if (!workshopDate) {
+
+        showMessage(
+            "formMessage",
+            "Enter the workshop date.",
+            "error"
+        );
+
+        return;
+    }
+
+
+    if (
+        !Number.isFinite(hours) ||
+        hours <= 0
+    ) {
+
+        showMessage(
+            "formMessage",
+            "Professional learning hours must be greater than zero.",
+            "error"
+        );
+
+        return;
+    }
+
+
+    // ========================================================
+    // DOCUMENT UPLOAD
+    // ========================================================
 
     let documentPath = null;
     let documentName = null;
@@ -879,24 +988,30 @@ async function saveRecord(event) {
 
     if (file) {
 
-        const result =
+        const uploadResult =
             await uploadDocument(file);
 
 
-        if (!result) {
+        if (!uploadResult) {
             return;
         }
 
 
         documentPath =
-            result.path;
+            uploadResult.path;
 
 
         documentName =
             file.name;
-
     }
 
+
+    // ========================================================
+    // RECORD SENT TO SUPABASE
+    //
+    // NOTICE:
+    // NO CEU FIELD!
+    // ========================================================
 
     const record = {
 
@@ -909,16 +1024,18 @@ async function saveRecord(event) {
         workshop_date:
             workshopDate,
 
-        provider,
+        provider:
+            provider || null,
 
-        hours,
+        hours:
+            hours,
 
-        ceu,
-
-        description
-
+        description:
+            description || null
     };
 
+
+    // ONLY REPLACE DOCUMENT IF NEW FILE WAS UPLOADED
 
     if (documentPath) {
 
@@ -927,12 +1044,15 @@ async function saveRecord(event) {
 
         record.document_name =
             documentName;
-
     }
 
 
     let response;
 
+
+    // ========================================================
+    // UPDATE
+    // ========================================================
 
     if (id) {
 
@@ -944,18 +1064,28 @@ async function saveRecord(event) {
                     "id",
                     id
                 );
+    }
 
-    } else {
+    // ========================================================
+    // INSERT
+    // ========================================================
+
+    else {
 
         response =
             await supabaseClient
                 .from("ceu_records")
                 .insert(record);
-
     }
 
 
     if (response.error) {
+
+        console.error(
+            "Save error:",
+            response.error
+        );
+
 
         showMessage(
             "formMessage",
@@ -964,17 +1094,16 @@ async function saveRecord(event) {
         );
 
         return;
-
     }
 
 
     showMessage(
         "formMessage",
+
         id
-            ?
-            "Workshop updated successfully."
-            :
-            "Workshop submitted successfully.",
+            ? "Workshop updated successfully."
+            : "Workshop submitted successfully.",
+
         "success"
     );
 
@@ -982,7 +1111,6 @@ async function saveRecord(event) {
     resetForm();
 
     await refreshAll();
-
 }
 
 
@@ -992,12 +1120,30 @@ async function saveRecord(event) {
 
 async function uploadDocument(file) {
 
+    // OPTIONAL FILE SIZE LIMIT
+    // 10 MB
+
+    const maxSize =
+        10 * 1024 * 1024;
+
+
+    if (file.size > maxSize) {
+
+        showMessage(
+            "formMessage",
+            "The document must be 10 MB or smaller.",
+            "error"
+        );
+
+        return null;
+    }
+
+
     const safeName =
-        file.name
-            .replace(
-                /[^a-zA-Z0-9._-]/g,
-                "_"
-            );
+        file.name.replace(
+            /[^a-zA-Z0-9._-]/g,
+            "_"
+        );
 
 
     const filePath =
@@ -1007,17 +1153,26 @@ async function uploadDocument(file) {
     const {
         data,
         error
-    } =
-        await supabaseClient
-            .storage
-            .from("ceu-documents")
-            .upload(
-                filePath,
-                file
-            );
+    } = await supabaseClient
+        .storage
+        .from("ceu-documents")
+        .upload(
+            filePath,
+            file,
+            {
+                cacheControl: "3600",
+                upsert: false
+            }
+        );
 
 
     if (error) {
+
+        console.error(
+            "Upload error:",
+            error
+        );
+
 
         showMessage(
             "formMessage",
@@ -1027,12 +1182,10 @@ async function uploadDocument(file) {
         );
 
         return null;
-
     }
 
 
     return data;
-
 }
 
 
@@ -1042,20 +1195,30 @@ async function uploadDocument(file) {
 
 async function viewDocument(path) {
 
+    if (!path) {
+        return;
+    }
+
+
     const {
         data,
         error
-    } =
-        await supabaseClient
-            .storage
-            .from("ceu-documents")
-            .createSignedUrl(
-                path,
-                60
-            );
+    } = await supabaseClient
+        .storage
+        .from("ceu-documents")
+        .createSignedUrl(
+            path,
+            60
+        );
 
 
     if (error) {
+
+        console.error(
+            "Document error:",
+            error
+        );
+
 
         alert(
             "Unable to open document: " +
@@ -1063,20 +1226,19 @@ async function viewDocument(path) {
         );
 
         return;
-
     }
 
 
     window.open(
         data.signedUrl,
-        "_blank"
+        "_blank",
+        "noopener,noreferrer"
     );
-
 }
 
 
 // ============================================================
-// EDIT
+// EDIT RECORD
 // ============================================================
 
 function editRecord(id) {
@@ -1094,16 +1256,28 @@ function editRecord(id) {
     }
 
 
+    if (
+        record.status !== "pending"
+    ) {
+
+        alert(
+            "Only pending records can be edited."
+        );
+
+        return;
+    }
+
+
     $("recordId").value =
         record.id;
 
 
     $("workshopName").value =
-        record.workshop_name;
+        record.workshop_name || "";
 
 
     $("workshopDate").value =
-        record.workshop_date;
+        record.workshop_date || "";
 
 
     $("provider").value =
@@ -1111,15 +1285,25 @@ function editRecord(id) {
 
 
     $("hours").value =
-        record.hours;
-
-
-    $("ceu").value =
-        record.ceu;
+        record.hours || "";
 
 
     $("description").value =
         record.description || "";
+
+
+    // ========================================================
+    // DISPLAY SUPABASE'S CALCULATED CEU
+    // ========================================================
+
+    $("ceu").value =
+        Number(
+            record.ceu || 0
+        ).toFixed(2);
+
+
+    // File inputs cannot be pre-filled
+    $("documentFile").value = "";
 
 
     $("cancelEditButton")
@@ -1130,12 +1314,11 @@ function editRecord(id) {
     showView(
         "addView"
     );
-
 }
 
 
 // ============================================================
-// DELETE
+// DELETE RECORD
 // ============================================================
 
 async function deleteRecord(id) {
@@ -1154,50 +1337,85 @@ async function deleteRecord(id) {
 
 
     if (
-        !confirm(
-            `Delete "${record.workshop_name}"?`
-        )
+        record.status !== "pending"
     ) {
+
+        alert(
+            "Only pending records can be deleted."
+        );
+
         return;
     }
 
 
-    if (
-        record.document_path
-    ) {
+    const confirmed =
+        confirm(
+            `Delete "${record.workshop_name}"?`
+        );
 
-        await supabaseClient
+
+    if (!confirmed) {
+        return;
+    }
+
+
+    // ========================================================
+    // DELETE DATABASE RECORD FIRST
+    // ========================================================
+
+    const {
+        error
+    } = await supabaseClient
+        .from("ceu_records")
+        .delete()
+        .eq(
+            "id",
+            id
+        );
+
+
+    if (error) {
+
+        console.error(
+            "Delete error:",
+            error
+        );
+
+        alert(
+            error.message
+        );
+
+        return;
+    }
+
+
+    // ========================================================
+    // DELETE ASSOCIATED DOCUMENT
+    // ========================================================
+
+    if (record.document_path) {
+
+        const {
+            error: storageError
+        } = await supabaseClient
             .storage
             .from("ceu-documents")
             .remove([
                 record.document_path
             ]);
 
-    }
 
+        if (storageError) {
 
-    const {
-        error
-    } =
-        await supabaseClient
-            .from("ceu_records")
-            .delete()
-            .eq(
-                "id",
-                id
+            console.warn(
+                "Record deleted but document could not be removed:",
+                storageError
             );
-
-
-    if (error) {
-
-        alert(error.message);
-        return;
-
+        }
     }
 
 
     await refreshAll();
-
 }
 
 
@@ -1209,16 +1427,20 @@ function resetForm() {
 
     $("ceuForm").reset();
 
+
     $("recordId").value = "";
 
-    $("ceu").value = 0;
+
+    // CALCULATED CEU DISPLAY
+    $("ceu").value = "0.00";
+
 
     $("cancelEditButton")
         .classList
         .add("hidden");
 
-    setDefaultDate();
 
+    setDefaultDate();
 }
 
 
@@ -1231,24 +1453,29 @@ async function loadProfiles() {
     const {
         data,
         error
-    } =
-        await supabaseClient
-            .from("profiles")
-            .select("*")
-            .eq(
-                "active",
-                true
-            )
-            .order(
-                "full_name"
-            );
+    } = await supabaseClient
+        .from("profiles")
+        .select("*")
+        .eq(
+            "active",
+            true
+        )
+        .order(
+            "full_name",
+            {
+                ascending: true
+            }
+        );
 
 
     if (error) {
 
-        console.error(error);
-        return;
+        console.error(
+            "Profiles error:",
+            error
+        );
 
+        return;
     }
 
 
@@ -1257,12 +1484,11 @@ async function loadProfiles() {
 
 
     populateTeacherFilter();
-
 }
 
 
 // ============================================================
-// ADMIN - LOAD RECORDS
+// ADMIN - LOAD ALL RECORDS
 // ============================================================
 
 async function loadAllRecords() {
@@ -1270,31 +1496,33 @@ async function loadAllRecords() {
     const {
         data,
         error
-    } =
-        await supabaseClient
-            .from("ceu_records")
-            .select(`
-                *,
-                profiles!ceu_records_teacher_id_fkey (
-                    full_name,
-                    email,
-                    school,
-                    employee_id
-                )
-            `)
-            .order(
-                "workshop_date",
-                {
-                    ascending: false
-                }
-            );
+    } = await supabaseClient
+        .from("ceu_records")
+        .select(`
+            *,
+            profiles!ceu_records_teacher_id_fkey (
+                full_name,
+                email,
+                school,
+                employee_id
+            )
+        `)
+        .order(
+            "workshop_date",
+            {
+                ascending: false
+            }
+        );
 
 
     if (error) {
 
-        console.error(error);
-        return;
+        console.error(
+            "Admin records error:",
+            error
+        );
 
+        return;
     }
 
 
@@ -1305,12 +1533,11 @@ async function loadAllRecords() {
     renderAdminStats();
 
     renderAdminRecords();
-
 }
 
 
 // ============================================================
-// ADMIN STATS
+// ADMIN STATISTICS
 // ============================================================
 
 function renderAdminStats() {
@@ -1318,24 +1545,21 @@ function renderAdminStats() {
     const teachers =
         new Set(
             allRecords.map(
-                r =>
-                    r.teacher_id
+                record =>
+                    record.teacher_id
             )
         );
 
 
-    $("adminTeacherCount")
-        .textContent =
+    $("adminTeacherCount").textContent =
         teachers.size;
 
 
-    $("adminRecordCount")
-        .textContent =
+    $("adminRecordCount").textContent =
         allRecords.length;
 
 
-    $("adminTotalHours")
-        .textContent =
+    $("adminTotalHours").textContent =
         formatNumber(
             sum(
                 allRecords,
@@ -1344,49 +1568,51 @@ function renderAdminStats() {
         );
 
 
-    $("adminPendingCount")
-        .textContent =
+    $("adminPendingCount").textContent =
         allRecords.filter(
-            r =>
-                r.status === "pending"
+            record =>
+                record.status === "pending"
         ).length;
-
 }
 
 
 // ============================================================
-// TEACHER FILTER
+// POPULATE TEACHER FILTER
 // ============================================================
 
 function populateTeacherFilter() {
 
     const teachers =
         profiles.filter(
-            p =>
-                p.role === "teacher"
+            profile =>
+                profile.role === "teacher"
         );
 
 
-    $("adminTeacherFilter")
-        .innerHTML =
+    $("adminTeacherFilter").innerHTML =
 
-        `<option value="">
+        `
+        <option value="">
             All Teachers
-        </option>` +
+        </option>
+        `
+
+        +
 
         teachers
             .map(profile => `
 
                 <option value="${profile.id}">
+
                     ${escapeHTML(
                         profile.full_name ||
                         profile.email
                     )}
+
                 </option>
 
             `)
             .join("");
-
 }
 
 
@@ -1416,36 +1642,47 @@ function renderAdminRecords() {
     const records =
         allRecords.filter(record => {
 
-            const name =
-                record.profiles
-                    ?.full_name ||
-                record.profiles
-                    ?.email ||
-                "";
+            const profile =
+                record.profiles || {};
+
+
+            const teacherName =
+                (
+                    profile.full_name ||
+                    profile.email ||
+                    ""
+                ).toLowerCase();
+
+
+            const workshop =
+                (
+                    record.workshop_name ||
+                    ""
+                ).toLowerCase();
+
+
+            const school =
+                (
+                    profile.school ||
+                    ""
+                ).toLowerCase();
 
 
             const matchesSearch =
                 !search ||
-
-                name
-                    .toLowerCase()
-                    .includes(search) ||
-
-                record.workshop_name
-                    .toLowerCase()
-                    .includes(search);
+                teacherName.includes(search) ||
+                workshop.includes(search) ||
+                school.includes(search);
 
 
             const matchesTeacher =
                 !teacher ||
-                record.teacher_id ===
-                teacher;
+                record.teacher_id === teacher;
 
 
             const matchesStatus =
                 !status ||
-                record.status ===
-                status;
+                record.status === status;
 
 
             return (
@@ -1453,30 +1690,30 @@ function renderAdminRecords() {
                 matchesTeacher &&
                 matchesStatus
             );
-
         });
 
 
-    $("adminRecordsTable")
-        .innerHTML =
+    $("adminRecordsTable").innerHTML =
         records.length
             ?
             records
-                .map(record =>
-                    adminRecordRow(record)
+                .map(
+                    record =>
+                        adminRecordRow(record)
                 )
                 .join("")
+
             :
+
             emptyRow(
                 9,
                 "No records found."
             );
-
 }
 
 
 // ============================================================
-// ADMIN ROW
+// ADMIN RECORD ROW
 // ============================================================
 
 function adminRecordRow(record) {
@@ -1492,71 +1729,98 @@ function adminRecordRow(record) {
             <td>
 
                 <strong>
+
                     ${escapeHTML(
                         profile.full_name ||
                         profile.email ||
                         ""
                     )}
+
                 </strong>
 
             </td>
 
-            <td>
-                ${escapeHTML(
-                    profile.school || ""
-                )}
-            </td>
 
             <td>
+
+                ${escapeHTML(
+                    profile.school ||
+                    ""
+                )}
+
+            </td>
+
+
+            <td>
+
                 ${formatDate(
                     record.workshop_date
                 )}
+
             </td>
 
+
             <td>
+
                 ${escapeHTML(
                     record.workshop_name
                 )}
+
             </td>
 
+
             <td>
+
                 ${formatNumber(
                     record.hours
                 )}
+
             </td>
 
+
             <td>
+
                 ${formatNumber(
                     record.ceu
                 )}
+
             </td>
+
 
             <td>
 
                 ${
                     record.document_path
                         ?
-                        `<button
-                            onclick="viewDocument('${record.document_path}')"
-                            class="secondary-button">
+                        `
+                        <button
+                            onclick="viewDocument('${escapeJSString(record.document_path)}')"
+                            class="secondary-button"
+                        >
                             View
-                        </button>`
+                        </button>
+                        `
                         :
                         "—"
                 }
 
             </td>
 
+
             <td>
+
                 ${statusBadge(
                     record.status
                 )}
+
             </td>
+
 
             <td>
 
                 <button
-                    onclick="openReviewModal(${record.id})">
+                    onclick="openReviewModal(${record.id})"
+                >
                     Review
                 </button>
 
@@ -1565,12 +1829,11 @@ function adminRecordRow(record) {
         </tr>
 
     `;
-
 }
 
 
 // ============================================================
-// REVIEW MODAL
+// OPEN REVIEW MODAL
 // ============================================================
 
 function openReviewModal(id) {
@@ -1599,9 +1862,12 @@ function openReviewModal(id) {
     $("reviewModal")
         .classList
         .remove("hidden");
-
 }
 
+
+// ============================================================
+// CLOSE REVIEW MODAL
+// ============================================================
 
 function closeReviewModal() {
 
@@ -1613,19 +1879,30 @@ function closeReviewModal() {
     $("reviewRecordId").value = "";
 
     $("reviewNotes").value = "";
-
 }
 
 
 // ============================================================
-// APPROVE / REJECT
+// APPROVE / REJECT RECORD
 // ============================================================
 
 async function reviewRecord(status) {
 
+    if (
+        !currentProfile ||
+        currentProfile.role !== "admin"
+    ) {
+
+        alert(
+            "Administrator access required."
+        );
+
+        return;
+    }
+
+
     const id =
-        $("reviewRecordId")
-            .value;
+        $("reviewRecordId").value;
 
 
     if (!id) {
@@ -1641,53 +1918,59 @@ async function reviewRecord(status) {
 
     const {
         error
-    } =
-        await supabaseClient
-            .from("ceu_records")
-            .update({
+    } = await supabaseClient
+        .from("ceu_records")
+        .update({
 
+            status:
                 status,
 
-                admin_notes:
-                    notes,
+            admin_notes:
+                notes || null,
 
-                reviewed_by:
-                    currentUser.id,
+            reviewed_by:
+                currentUser.id,
 
-                reviewed_at:
-                    new Date()
-                        .toISOString()
+            reviewed_at:
+                new Date()
+                    .toISOString()
 
-            })
-            .eq(
-                "id",
-                id
-            );
+        })
+        .eq(
+            "id",
+            id
+        );
 
 
     if (error) {
+
+        console.error(
+            "Review error:",
+            error
+        );
 
         alert(
             error.message
         );
 
         return;
-
     }
 
 
     closeReviewModal();
 
     await refreshAll();
-
 }
 
 
 // ============================================================
-// CSV EXPORT
+// EXPORT CSV
 // ============================================================
 
-function exportCSV(records, filename) {
+function exportCSV(
+    records,
+    filename
+) {
 
     if (!records.length) {
 
@@ -1696,7 +1979,6 @@ function exportCSV(records, filename) {
         );
 
         return;
-
     }
 
 
@@ -1704,6 +1986,7 @@ function exportCSV(records, filename) {
 
         [
             "Teacher",
+            "Employee ID",
             "School",
             "Workshop Date",
             "Workshop",
@@ -1731,6 +2014,9 @@ function exportCSV(records, filename) {
             profile.email ||
             "",
 
+            profile.employee_id ||
+            "",
+
             profile.school ||
             "",
 
@@ -1756,7 +2042,6 @@ function exportCSV(records, filename) {
             ""
 
         ]);
-
     });
 
 
@@ -1788,39 +2073,54 @@ function exportCSV(records, filename) {
         document.createElement("a");
 
 
-    link.href = url;
-    link.download = filename;
+    link.href =
+        url;
+
+
+    link.download =
+        filename;
+
 
     document.body
         .appendChild(link);
+
 
     link.click();
 
     link.remove();
 
-    URL.revokeObjectURL(url);
 
+    URL.revokeObjectURL(url);
 }
 
 
 // ============================================================
-// VIEWS
+// SHOW VIEW
 // ============================================================
 
 function showView(viewId) {
 
     document
         .querySelectorAll(".view")
-        .forEach(view =>
+        .forEach(view => {
+
             view
                 .classList
-                .add("hidden")
-        );
+                .add("hidden");
+
+        });
 
 
-    $(viewId)
-        .classList
-        .remove("hidden");
+    const selectedView =
+        $(viewId);
+
+
+    if (selectedView) {
+
+        selectedView
+            .classList
+            .remove("hidden");
+    }
 
 
     document
@@ -1836,40 +2136,52 @@ function showView(viewId) {
                 );
 
         });
-
 }
 
 
 // ============================================================
-// HELPERS
+// SUM
 // ============================================================
 
-function sum(records, field) {
+function sum(
+    records,
+    field
+) {
 
     return records.reduce(
         (total, record) =>
+
             total +
             Number(
                 record[field] || 0
             ),
+
         0
     );
-
 }
 
+
+// ============================================================
+// FORMAT NUMBER
+// ============================================================
 
 function formatNumber(value) {
 
-    return Number(value || 0)
-        .toLocaleString(
-            undefined,
-            {
-                maximumFractionDigits: 2
-            }
-        );
-
+    return Number(
+        value || 0
+    ).toLocaleString(
+        undefined,
+        {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        }
+    );
 }
 
+
+// ============================================================
+// FORMAT DATE
+// ============================================================
 
 function formatDate(value) {
 
@@ -1878,32 +2190,61 @@ function formatDate(value) {
     }
 
 
+    const parts =
+        value.split("-");
+
+
+    if (parts.length !== 3) {
+        return value;
+    }
+
+
     const [
         year,
         month,
         day
-    ] =
-        value.split("-");
+    ] = parts;
 
 
     return `${month}/${day}/${year}`;
-
 }
 
 
+// ============================================================
+// STATUS BADGE
+// ============================================================
+
 function statusBadge(status) {
+
+    const safeStatus =
+        [
+            "approved",
+            "pending",
+            "rejected"
+        ].includes(status)
+            ? status
+            : "pending";
+
 
     return `
 
         <span
-            class="status status-${status}">
-            ${escapeHTML(status)}
+            class="status status-${safeStatus}"
+        >
+
+            ${escapeHTML(
+                safeStatus
+            )}
+
         </span>
 
     `;
-
 }
 
+
+// ============================================================
+// EMPTY TABLE ROW
+// ============================================================
 
 function emptyRow(
     columns,
@@ -1922,15 +2263,22 @@ function emptyRow(
                     color:#667085;
                 "
             >
-                ${escapeHTML(message)}
+
+                ${escapeHTML(
+                    message
+                )}
+
             </td>
 
         </tr>
 
     `;
-
 }
 
+
+// ============================================================
+// DEFAULT DATE
+// ============================================================
 
 function setDefaultDate() {
 
@@ -1943,15 +2291,41 @@ function setDefaultDate() {
         !input.value
     ) {
 
+        const today =
+            new Date();
+
+
+        const year =
+            today.getFullYear();
+
+
+        const month =
+            String(
+                today.getMonth() + 1
+            ).padStart(
+                2,
+                "0"
+            );
+
+
+        const day =
+            String(
+                today.getDate()
+            ).padStart(
+                2,
+                "0"
+            );
+
+
         input.value =
-            new Date()
-                .toISOString()
-                .slice(0,10);
-
+            `${year}-${month}-${day}`;
     }
-
 }
 
+
+// ============================================================
+// SHOW MESSAGE
+// ============================================================
 
 function showMessage(
     element,
@@ -1963,15 +2337,23 @@ function showMessage(
         $(element);
 
 
+    if (!el) {
+        return;
+    }
+
+
     el.textContent =
         message;
 
 
     el.className =
         `message ${type}`;
-
 }
 
+
+// ============================================================
+// CLEAR MESSAGE
+// ============================================================
 
 function clearMessage(element) {
 
@@ -1979,13 +2361,21 @@ function clearMessage(element) {
         $(element);
 
 
+    if (!el) {
+        return;
+    }
+
+
     el.textContent = "";
 
     el.className =
         "message";
-
 }
 
+
+// ============================================================
+// ESCAPE HTML
+// ============================================================
 
 function escapeHTML(value) {
 
@@ -2012,9 +2402,32 @@ function escapeHTML(value) {
             /'/g,
             "&#039;"
         );
-
 }
 
+
+// ============================================================
+// ESCAPE STRING USED INSIDE ONCLICK
+// ============================================================
+
+function escapeJSString(value) {
+
+    return String(
+        value ?? ""
+    )
+        .replace(
+            /\\/g,
+            "\\\\"
+        )
+        .replace(
+            /'/g,
+            "\\'"
+        );
+}
+
+
+// ============================================================
+// CSV ESCAPE
+// ============================================================
 
 function csvEscape(value) {
 
@@ -2028,5 +2441,4 @@ function csvEscape(value) {
         /"/g,
         '""'
     )}"`;
-
 }
