@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Professional Learning Tracker</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+</head>
+
+<body>
+
+<!-- =========================================================
+LOGIN
+========================================================= -->
+
+<div id="loginPage" class="login-page">
+
+    <div class="login-card">
+
+        <div class="login-logo">
+            CEU
+        </div>
+
+        <h1>Professional Learning Tracker</h1>
+
+        <p>
+            Teacher Continuing Education Records
+        </p>
+
+        <label>Email</label>
+
+        <input
+            type="email"
+            id="loginEmail"
+            placeholder="name@district.org"
+        >
+
+        <label>Password</label>
+
+        <input
+            type="password"
+            id="loginPassword"
+            placeholder="Password"
+        >
+
+        <button id="loginButton">
+            Sign In
+        </button>
+
+        <div
+            id="loginMessage"
+            class="message"
+        ></div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+APPLICATION
+========================================================= -->
+
+<div
+    id="app"
+    class="hidden"
+>
+
+    <!-- HEADER -->
+
+    <header>
+
+        <div>
+
+            <h1>
+                Professional Learning Tracker
+            </h1>
+
+            <div class="subtitle">
+                CEU & Professional Development Records
+            </div>
+
+        </div>
+
+        <div class="header-user">
+
+            <div>
+
+                <strong id="headerName"></strong>
+
+                <span id="headerRole"></span>
+
+            </div>
+
+            <button
+                id="logoutButton"
+                class="secondary-button"
+            >
+                Sign Out
+            </button>
+
+        </div>
+
+    </header>
+
+
+    <!-- NAVIGATION -->
+
+    <nav>
+
+        <button
+            class="nav-button active"
+            data-view="dashboardView"
+        >
+            Dashboard
+        </button>
+
+        <button
+            class="nav-button"
+            data-view="addView"
+        >
+            Add Workshop
+        </button>
+
+        <button
+            class="nav-button"
+            data-view="recordsView"
+        >
+            My Records
+        </button>
+
+        <button
+            id="adminTab"
+            class="nav-button hidden"
+            data-view="adminView"
+        >
+            Administrator
+        </button>
+
+    </nav>
+
+
+    <main>
+
+        <!-- =================================================
+        DASHBOARD
+        ================================================== -->
+
+        <section
+            id="dashboardView"
+            class="view"
+        >
+
+            <div class="page-heading">
+
+                <div>
+                    <h2>My Professional Learning</h2>
+
+                    <p>
+                        Track your workshops, CEUs and professional
+                        learning hours.
+                    </p>
+                </div>
+
+            </div>
+
+
+            <div class="stats">
+
+                <div class="stat-card">
+
+                    <span>Total Hours</span>
+
+                    <strong id="totalHours">
+                        0
+                    </strong>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>Approved Hours</span>
+
+                    <strong id="approvedHours">
+                        0
+                    </strong>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>Pending Hours</span>
+
+                    <strong id="pendingHours">
+                        0
+                    </strong>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>Total CEUs</span>
+
+                    <strong id="totalCEUs">
+                        0
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <div class="card progress-card">
+
+                <div class="progress-header">
+
+                    <div>
+                        <h3>Professional Learning Goal</h3>
+
+                        <span id="goalText">
+                            0 of 90 hours
+                        </span>
+                    </div>
+
+                    <strong id="goalPercent">
+                        0%
+                    </strong>
+
+                </div>
+
+                <div class="progress-bar">
+
+                    <div
+                        id="progressFill"
+                        class="progress-fill"
+                    ></div>
+
+                </div>
+
+                <div
+                    id="remainingText"
+                    class="remaining"
+                >
+                    90 hours remaining
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <h3>Recent Workshops</h3>
+
+                <div class="table-container">
+
+                    <table>
+
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Workshop</th>
+                                <th>Hours</th>
+                                <th>CEUs</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="recentRecords"></tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+        ADD WORKSHOP
+        ================================================== -->
+
+        <section
+            id="addView"
+            class="view hidden"
+        >
+
+            <div class="page-heading">
+
+                <div>
+
+                    <h2>Add Professional Learning</h2>
+
+                    <p>
+                        Enter workshop information and upload
+                        supporting documentation.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <form id="ceuForm">
+
+                    <input
+                        type="hidden"
+                        id="recordId"
+                    >
+
+
+                    <div class="form-grid">
+
+                        <div class="field full">
+
+                            <label>
+                                Workshop / Course Name *
+                            </label>
+
+                            <input
+                                id="workshopName"
+                                required
+                            >
+
+                        </div>
+
+
+                        <div class="field">
+
+                            <label>
+                                Workshop Date *
+                            </label>
+
+                            <input
+                                type="date"
+                                id="workshopDate"
+                                required
+                            >
+
+                        </div>
+
+
+                        <div class="field">
+
+                            <label>
+                                Provider / Organization
+                            </label>
+
+                            <input
+                                id="provider"
+                                placeholder="Organization providing workshop"
+                            >
+
+                        </div>
+
+
+                        <div class="field">
+
+                            <label>
+                                Hours *
+                            </label>
+
+                            <input
+                                type="number"
+                                id="hours"
+                                min="0"
+                                step=".25"
+                                required
+                            >
+
+                        </div>
+
+
+                        <div class="field">
+
+                            <label>
+                                CEUs
+                            </label>
+
+                            <input
+                                type="number"
+                                id="ceu"
+                                min="0"
+                                step=".01"
+                                value="0"
+                            >
+
+                        </div>
+
+
+                        <div class="field full">
+
+                            <label>
+                                Description
+                            </label>
+
+                            <textarea
+                                id="description"
+                                rows="4"
+                                placeholder="Describe the workshop or professional learning activity..."
+                            ></textarea>
+
+                        </div>
+
+
+                        <div class="field full">
+
+                            <label>
+                                Supporting Documentation
+                            </label>
+
+                            <div class="upload-box">
+
+                                <input
+                                    type="file"
+                                    id="documentFile"
+                                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                >
+
+                                <p>
+                                    Upload certificate, transcript,
+                                    attendance documentation, PDF,
+                                    Word document or image.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-actions">
+
+                        <button type="submit">
+                            Save Workshop
+                        </button>
+
+                        <button
+                            type="button"
+                            id="cancelEditButton"
+                            class="secondary-button hidden"
+                        >
+                            Cancel
+                        </button>
+
+                    </div>
+
+
+                    <div
+                        id="formMessage"
+                        class="message"
+                    ></div>
+
+                </form>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+        MY RECORDS
+        ================================================== -->
+
+        <section
+            id="recordsView"
+            class="view hidden"
+        >
+
+            <div class="page-heading">
+
+                <div>
+
+                    <h2>My CEU Records</h2>
+
+                    <p>
+                        Your complete professional learning history.
+                    </p>
+
+                </div>
+
+                <button id="exportMyButton">
+                    Export CSV
+                </button>
+
+            </div>
+
+
+            <div class="card">
+
+                <div class="filters">
+
+                    <input
+                        id="mySearch"
+                        placeholder="Search workshops..."
+                    >
+
+                    <select id="myStatus">
+
+                        <option value="">
+                            All Statuses
+                        </option>
+
+                        <option value="approved">
+                            Approved
+                        </option>
+
+                        <option value="pending">
+                            Pending
+                        </option>
+
+                        <option value="rejected">
+                            Rejected
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="table-container">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Date</th>
+                                <th>Workshop</th>
+                                <th>Provider</th>
+                                <th>Hours</th>
+                                <th>CEUs</th>
+                                <th>Document</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="myRecordsTable"></tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+        ADMIN
+        ================================================== -->
+
+        <section
+            id="adminView"
+            class="view hidden"
+        >
+
+            <div class="page-heading">
+
+                <div>
+
+                    <h2>Administrator Dashboard</h2>
+
+                    <p>
+                        District-wide professional learning records.
+                    </p>
+
+                </div>
+
+                <button id="adminExportButton">
+                    Export All
+                </button>
+
+            </div>
+
+
+            <div class="stats">
+
+                <div class="stat-card">
+
+                    <span>Teachers</span>
+
+                    <strong id="adminTeacherCount">
+                        0
+                    </strong>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>Total Records</span>
+
+                    <strong id="adminRecordCount">
+                        0
+                    </strong>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>Total Hours</span>
+
+                    <strong id="adminTotalHours">
+                        0
+                    </strong>
+
+                </div>
+
+
+                <div class="stat-card warning">
+
+                    <span>Pending Review</span>
+
+                    <strong id="adminPendingCount">
+                        0
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <div class="filters admin-filters">
+
+                    <input
+                        id="adminSearch"
+                        placeholder="Search teacher or workshop..."
+                    >
+
+                    <select id="adminTeacherFilter">
+
+                        <option value="">
+                            All Teachers
+                        </option>
+
+                    </select>
+
+
+                    <select id="adminStatusFilter">
+
+                        <option value="">
+                            All Statuses
+                        </option>
+
+                        <option value="pending">
+                            Pending
+                        </option>
+
+                        <option value="approved">
+                            Approved
+                        </option>
+
+                        <option value="rejected">
+                            Rejected
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="table-container">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>Teacher</th>
+                                <th>School</th>
+                                <th>Date</th>
+                                <th>Workshop</th>
+                                <th>Hours</th>
+                                <th>CEUs</th>
+                                <th>Document</th>
+                                <th>Status</th>
+                                <th>Review</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="adminRecordsTable"></tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<!-- =========================================================
+REVIEW MODAL
+========================================================= -->
+
+<div
+    id="reviewModal"
+    class="modal hidden"
+>
+
+    <div class="modal-card">
+
+        <h2>Review CEU Record</h2>
+
+        <input
+            type="hidden"
+            id="reviewRecordId"
+        >
+
+        <label>Administrator Notes</label>
+
+        <textarea
+            id="reviewNotes"
+            rows="5"
+        ></textarea>
+
+        <div class="modal-actions">
+
+            <button
+                id="approveButton"
+                class="approve-button"
+            >
+                Approve
+            </button>
+
+            <button
+                id="rejectButton"
+                class="reject-button"
+            >
+                Reject
+            </button>
+
+            <button
+                id="closeReviewButton"
+                class="secondary-button"
+            >
+                Cancel
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script src="app.js"></script>
+
+</body>
+
+</html>
