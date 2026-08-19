@@ -639,5 +639,10 @@ RESPONSIVE
         gap: 12px;
         flex-direction: column;
     }
-
+.employee-id {
+    margin-top: 3px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #667085;
+}
 }
