@@ -1738,6 +1738,18 @@ function adminRecordRow(record) {
 
                 </strong>
 
+                ${
+                    profile.employee_id
+                        ?
+                        `
+                        <div class="employee-id">
+                            ID: ${escapeHTML(profile.employee_id)}
+                        </div>
+                        `
+                        :
+                        ""
+                }
+
             </td>
 
 
@@ -1830,8 +1842,6 @@ function adminRecordRow(record) {
 
     `;
 }
-
-
 // ============================================================
 // OPEN REVIEW MODAL
 // ============================================================
